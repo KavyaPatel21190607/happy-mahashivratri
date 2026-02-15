@@ -1,168 +1,16 @@
 // @ts-nocheck
-import { useState, useRef, useEffect, Suspense } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router';
 import { Home, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
-import * as THREE from 'three';
 import gsap from 'gsap';
 import { devotionalAudio } from '../utils/audio';
-
-// 3D Diya Flame Component
-function DiyaFlame({ isLit }: { isLit: boolean }) {
-  const flameRef = useRef<THREE.Mesh>(null);
-  
-  useFrame((state) => {
-    if (flameRef.current && isLit) {
-      const time = state.clock.getElapsedTime();
-      flameRef.current.scale.y = 1 + Math.sin(time * 5) * 0.1;
-      flameRef.current.scale.x = 1 + Math.sin(time * 4) * 0.05;
-      flameRef.current.position.y = 0.5 + Math.sin(time * 3) * 0.05;
-    }
-  });
-
-  if (!isLit) return null;
-
-  return (
-    <group>
-      {/* Flame */}
-      <mesh ref={flameRef} position={[0, 0.5, 0]}>
-        <coneGeometry args={[0.15, 0.6, 8]} />
-        <meshBasicMaterial color="#ff6b00" transparent opacity={0.9} />
-      </mesh>
-      
-      {/* Inner glow */}
-      <mesh position={[0, 0.5, 0]}>
-        <coneGeometry args={[0.1, 0.4, 8]} />
-        <meshBasicMaterial color="#ffff00" transparent opacity={0.8} />
-      </mesh>
-
-      {/* Point light */}
-      <pointLight position={[0, 0.5, 0]} color="#ff6b00" intensity={2} distance={5} />
-    </group>
-  );
-}
-
-// 3D Diya Component
-function Diya3D({ isLit }: { isLit: boolean }) {
-  return (
-    <group>
-      {/* Diya base */}
-      <mesh position={[0, 0, 0]}>
-        <cylinderGeometry args={[0.4, 0.5, 0.2, 16]} />
-        <meshStandardMaterial color="#d4af37" metalness={0.8} roughness={0.2} />
-      </mesh>
-      
-      {/* Diya top */}
-      <mesh position={[0, 0.1, 0]}>
-        <torusGeometry args={[0.4, 0.05, 8, 16]} />
-        <meshStandardMaterial color="#d4af37" metalness={0.8} roughness={0.2} />
-      </mesh>
-
-      {/* Flame */}
-      <DiyaFlame isLit={isLit} />
-    </group>
-  );
-}
-
-// Falling Flower Component
-function FallingFlower({ 
-  position, 
-  onComplete 
-}: { 
-  position: [number, number, number]; 
-  onComplete: () => void;
-}) {
-  const groupRef = useRef<THREE.Group>(null);
-  
-  useFrame(() => {
-    if (groupRef.current) {
-      groupRef.current.position.y -= 0.02;
-      groupRef.current.rotation.z += 0.05;
-      groupRef.current.rotation.x += 0.03;
-      
-      if (groupRef.current.position.y < -2) {
-        onComplete();
-      }
-    }
-  });
-
-  return (
-    <group ref={groupRef} position={position}>
-      {/* Center of flower */}
-      <mesh>
-        <circleGeometry args={[0.08, 16]} />
-        <meshBasicMaterial 
-          color="#ffff00" 
-          transparent 
-          opacity={0.95} 
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-
-      {/* Petals - arrange in circle */}
-      {[0, 1, 2, 3, 4, 5].map((i) => {
-        const angle = (i * Math.PI * 2) / 6;
-        const x = Math.cos(angle) * 0.15;
-        const y = Math.sin(angle) * 0.15;
-        return (
-          <mesh key={i} position={[x, y, 0]} rotation={[0, 0, angle]}>
-            <circleGeometry args={[0.12, 16]} />
-            <meshBasicMaterial 
-              color="#ff69b4" 
-              transparent 
-              opacity={0.9} 
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-        );
-      })}
-
-      {/* Glow effect */}
-      <mesh>
-        <circleGeometry args={[0.3, 32]} />
-        <meshBasicMaterial 
-          color="#ff69b4" 
-          transparent 
-          opacity={0.2} 
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-    </group>
-  );
-}
-
-// Main Scene Component
-function PujaScene({ 
-  isLit, 
-  flowers 
-}: { 
-  isLit: boolean; 
-  flowers: Array<{ id: number; position: [number, number, number] }>;
-}) {
-  return (
-    <>
-      <ambientLight intensity={0.3} />
-      <spotLight position={[0, 5, 0]} angle={0.5} intensity={0.5} />
-      <Diya3D isLit={isLit} />
-      <OrbitControls 
-        enableZoom={false} 
-        enablePan={false}
-        minPolarAngle={Math.PI / 3}
-        maxPolarAngle={Math.PI / 2}
-      />
-    </>
-  );
-}
 
 export function InteractivePuja() {
   const [isDiyaLit, setIsDiyaLit] = useState(false);
   const [blessing, setBlessing] = useState('');
-  const [flowers, setFlowers] = useState<Array<{ id: number; position: [number, number, number] }>>([]);
-  const [selectedFlower, setSelectedFlower] = useState<'lotus' | 'marigold' | null>(null);
+  const [selectedFlower, setSelectedFlower] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const nextFlowerId = useRef(0);
 
   useEffect(() => {
     // Ambient sparkles
@@ -202,25 +50,12 @@ export function InteractivePuja() {
   const offerFlower = () => {
     if (!selectedFlower) return;
 
-    const newFlower = {
-      id: nextFlowerId.current++,
-      position: [
-        (Math.random() - 0.5) * 2,
-        3,
-        (Math.random() - 0.5) * 2
-      ] as [number, number, number]
-    };
-
-    setFlowers(prev => [...prev, newFlower]);
     setBlessing('🙏 Your offering has been accepted with divine grace.');
     
     // Play flower chime
     devotionalAudio.playFlowerChime();
     
     setTimeout(() => setBlessing(''), 4000);
-    setTimeout(() => {
-      setFlowers(prev => prev.filter(f => f.id !== newFlower.id));
-    }, 3000);
   };
 
   return (
@@ -290,25 +125,27 @@ export function InteractivePuja() {
           </p>
         </motion.div>
 
-        {/* 3D Diya Scene */}
+        {/* Diya Display */}
         <div className="w-full max-w-2xl mb-6 sm:mb-8">
           <div className="relative bg-gradient-to-br from-[#ffd700]/10 to-transparent backdrop-blur-md border-2 border-[#ffd700]/30 rounded-2xl sm:rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(255,215,0,0.3)] aspect-video">
-            <Suspense fallback={
+            {!isDiyaLit ? (
               <div className="flex items-center justify-center h-full">
-                <div className="text-white">Loading sacred scene...</div>
+                <div className="text-center px-6 py-8">
+                  <div className="text-6xl sm:text-7xl md:text-8xl mb-4">🪔</div>
+                  <p className="text-lg sm:text-xl md:text-2xl text-[#ffd700] font-semibold drop-shadow-[0_0_10px_rgba(255,215,0,0.8)]">
+                    Press the "Light the Diya" button to light diya
+                  </p>
+                </div>
               </div>
-            }>
-              <Canvas camera={{ position: [0, 2, 4], fov: 50 }}>
-                <PujaScene isLit={isDiyaLit} flowers={flowers} />
-                {flowers.map(flower => (
-                  <FallingFlower
-                    key={flower.id}
-                    position={flower.position}
-                    onComplete={() => setFlowers(prev => prev.filter(f => f.id !== flower.id))}
-                  />
-                ))}
-              </Canvas>
-            </Suspense>
+            ) : (
+              <div className="flex items-center justify-center h-full w-full bg-gradient-to-b from-[#1a1a2e] to-[#0a0a0a]">
+                <img 
+                  src="https://i.pinimg.com/originals/6a/d5/da/6ad5da08cd7d31c0258b1ba369a30b97.gif"
+                  alt="Lit Diya"
+                  className="max-h-full max-w-full object-contain"
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -385,27 +222,14 @@ export function InteractivePuja() {
               <motion.button
                 whileHover={{ scale: 1.15 }}
                 whileTap={{ scale: 0.9 }}
-                onClick={() => setSelectedFlower('lotus')}
+                onClick={() => setSelectedFlower(true)}
                 className={`p-4 sm:p-6 rounded-2xl border-4 transition-all duration-300 backdrop-blur-sm ${
-                  selectedFlower === 'lotus'
+                  selectedFlower
                     ? 'border-[#ff69b4] bg-[#ff69b4]/30 shadow-[0_0_25px_rgba(255,105,180,0.8)] scale-110'
                     : 'border-[#ff69b4]/40 bg-[#ff69b4]/10 hover:border-[#ff69b4]/70 hover:shadow-[0_0_15px_rgba(255,105,180,0.5)]'
                 }`}
               >
                 <span className="text-5xl sm:text-6xl drop-shadow-[0_0_10px_rgba(255,105,180,0.8)]">🪷</span>
-              </motion.button>
-              
-              <motion.button
-                whileHover={{ scale: 1.15 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setSelectedFlower('marigold')}
-                className={`p-4 sm:p-6 rounded-2xl border-4 transition-all duration-300 backdrop-blur-sm ${
-                  selectedFlower === 'marigold'
-                    ? 'border-[#ff9933] bg-[#ff9933]/30 shadow-[0_0_25px_rgba(255,153,51,0.8)] scale-110'
-                    : 'border-[#ff9933]/40 bg-[#ff9933]/10 hover:border-[#ff9933]/70 hover:shadow-[0_0_15px_rgba(255,153,51,0.5)]'
-                }`}
-              >
-                <span className="text-5xl sm:text-6xl drop-shadow-[0_0_10px_rgba(255,153,51,0.8)]">🌼</span>
               </motion.button>
             </div>
             
@@ -439,7 +263,7 @@ export function InteractivePuja() {
           </div>
           <div className="text-xs sm:text-sm md:text-base text-gray-300 space-y-2 bg-black/20 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/10">
             <p>1. Light the sacred diya to invoke divine presence</p>
-            <p>2. Select your preferred flower (lotus or marigold)</p>
+            <p>2. Select the sacred lotus flower</p>
             <p>3. Offer the flower with pure devotion</p>
             <p>4. Rotate the 3D scene by dragging to view from different angles</p>
             <p className="text-[#ffd700] mt-4 font-semibold">
