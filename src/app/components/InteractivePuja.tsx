@@ -10,7 +10,9 @@ export function InteractivePuja() {
   const [isDiyaLit, setIsDiyaLit] = useState(false);
   const [blessing, setBlessing] = useState('');
   const [selectedFlower, setSelectedFlower] = useState<boolean>(false);
+  const [fallingFlowers, setFallingFlowers] = useState<Array<{ id: number; x: number }>>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const nextFlowerId = useRef(0);
 
   useEffect(() => {
     // Ambient sparkles
@@ -50,12 +52,31 @@ export function InteractivePuja() {
   const offerFlower = () => {
     if (!selectedFlower) return;
 
+    // Create multiple falling flowers
+    const newFlowers = Array.from({ length: 5 }, (_, i) => ({
+      id: nextFlowerId.current++,
+      x: 20 + Math.random() * 60 // Random horizontal position (20-80%)
+    }));
+
+    setFallingFlowers(prev => [...prev, ...newFlowers]);
     setBlessing('🙏 Your offering has been accepted with divine grace.');
     
     // Play flower chime
     devotionalAudio.playFlowerChime();
     
+    // Reset flower selection after offering
+    setTimeout(() => {
+      setSelectedFlower(false);
+    }, 500);
+    
     setTimeout(() => setBlessing(''), 4000);
+    
+    // Remove flowers after animation completes
+    setTimeout(() => {
+      setFallingFlowers(prev => 
+        prev.filter(flower => !newFlowers.find(nf => nf.id === flower.id))
+      );
+    }, 3000);
   };
 
   return (
@@ -96,7 +117,7 @@ export function InteractivePuja() {
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="mb-6 sm:mb-8 w-full max-w-md px-4"
+          className="mb-6 sm:mb-8 w-full max-w-md px-4 relative"
         >
           <div className="relative bg-gradient-to-br from-[#ffd700]/20 to-transparent backdrop-blur-md border-2 border-[#ffd700]/40 rounded-2xl overflow-hidden shadow-[0_0_60px_rgba(255,215,0,0.4)]">
             <img 
@@ -105,6 +126,31 @@ export function InteractivePuja() {
               className="w-full h-auto object-contain"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a2e] via-transparent to-transparent opacity-50" />
+            
+            {/* Falling Flowers */}
+            {fallingFlowers.map((flower) => (
+              <motion.div
+                key={flower.id}
+                initial={{ y: -50, x: `${flower.x}%`, opacity: 1, rotate: 0, scale: 1 }}
+                animate={{ 
+                  y: '120%', 
+                  rotate: 360,
+                  opacity: [1, 1, 0.7, 0],
+                  scale: [1, 1.2, 1, 0.8]
+                }}
+                transition={{ 
+                  duration: 3,
+                  ease: "easeIn"
+                }}
+                className="absolute top-0 text-4xl sm:text-5xl pointer-events-none"
+                style={{
+                  left: `${flower.x}%`,
+                  filter: 'drop-shadow(0 0 10px rgba(255, 105, 180, 0.8))'
+                }}
+              >
+                🪷
+              </motion.div>
+            ))}
           </div>
         </motion.div>
 
@@ -264,8 +310,8 @@ export function InteractivePuja() {
           <div className="text-xs sm:text-sm md:text-base text-gray-300 space-y-2 bg-black/20 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/10">
             <p>1. Light the sacred diya to invoke divine presence</p>
             <p>2. Select the sacred lotus flower</p>
-            <p>3. Offer the flower with pure devotion</p>
-            <p>4. Rotate the 3D scene by dragging to view from different angles</p>
+            <p>3. Offer the flower with pure devotion and watch it fall on the deities</p>
+            <p>4. Repeat your prayers and offerings as many times as you wish</p>
             <p className="text-[#ffd700] mt-4 font-semibold">
               ॐ May your prayers be answered 🙏
             </p>
